@@ -152,7 +152,7 @@
 
 ---
 
-## 📂 项目目录结构详解
+## 项目目录结构详解
 
 ```
 typhoon-disaster-graphrag-web/
@@ -234,7 +234,7 @@ typhoon-disaster-graphrag-web/
 
 ---
 
-## 📋 数据库结构
+## 数据库结构
 
 ### SQLite数据表
 
@@ -368,13 +368,13 @@ Impact -[AFFECTED_AREA]-> Province     # 灾害影响的地区
 
 ---
 
-## 🚀 安装与配置
+## 安装与配置
 
 ### 前置要求
 - Python 3.8+
 - Node.js 16.0+
 - Neo4j 4.4+
-- 百炼平台API密钥(Qwen或DeepSeek)
+- API密钥(Qwen或DeepSeek)
 
 ### 第一步：安装Neo4j数据库
 
