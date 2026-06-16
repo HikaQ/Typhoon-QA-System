@@ -1,12 +1,13 @@
 import { createRouter, createWebHistory } from "vue-router";
 import AdminLayout from "../layouts/AdminLayout.vue";
 import UserLayout from "../layouts/UserLayout.vue";
+import { getAuthToken, getCurrentUser } from "../utils/auth";
 
 const routes = [
   {
     path: "/login",
     component: () => import("../views/Login.vue"),
-    meta: { title: "用户登陆" },
+    meta: { title: "用户登录" },
   },
   {
     path: "/register",
@@ -16,12 +17,17 @@ const routes = [
   {
     path: "/admin-login",
     component: () => import("../views/AdminLogin.vue"),
-    meta: { title: "管理员登陆" },
+    meta: { title: "管理员登录" },
   },
   {
     path: "/",
     component: UserLayout,
     meta: { requiresAuth: true, requiresUser: true },
+  },
+  {
+    path: "/profile",
+    component: () => import("../views/Profile.vue"),
+    meta: { requiresAuth: true, requiresUser: true, title: "个人中心" },
   },
   {
     path: "/admin",
@@ -45,13 +51,12 @@ const router = createRouter({
   routes,
 });
 
-// 路由守卫
 router.beforeEach((to, from, next) => {
-  const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
+  const currentUser = getCurrentUser();
+  const token = getAuthToken();
 
   if (to.meta.requiresAuth) {
-    if (!currentUser) {
-      // 未登陆，根据需要的角色重定向
+    if (!currentUser || !token) {
       if (to.meta.requiresAdmin) {
         next("/admin-login");
       } else {
@@ -60,7 +65,6 @@ router.beforeEach((to, from, next) => {
       return;
     }
 
-    // 检查权限
     if (to.meta.requiresAdmin && currentUser.type !== "admin") {
       next("/admin-login");
       return;

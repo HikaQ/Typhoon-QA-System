@@ -3,7 +3,7 @@
     <!-- 左侧导航 -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <h2>🎛️ 管理后台</h2>
+        <h2>管理后台</h2>
         <button class="back-to-chat" @click="backToChat" title="返回聊天">←</button>
       </div>
       <nav class="menu">
@@ -33,6 +33,7 @@
 
 <script setup>
 import { useRouter, useRoute } from "vue-router";
+import { clearAuth } from "../utils/auth";
 
 const router = useRouter();
 const route = useRoute();
@@ -53,7 +54,7 @@ const backToChat = () => {
 
 const logout = () => {
   if (confirm("确定要登出吗？")) {
-    localStorage.removeItem("currentUser");
+    clearAuth();
     router.push("/admin-login");
   }
 };

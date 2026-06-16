@@ -16,6 +16,8 @@ def query_kg():
 
     entities = extract_entities(question)
     graph_data = retrieve_knowledge(entities)
+    
+    # 构建上下文
     context = build_context(graph_data)
 
     return jsonify({

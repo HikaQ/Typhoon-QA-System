@@ -2,18 +2,18 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
-        <h1>🌪️ 台风知识问答系统</h1>
+        <h1>台风知识问答系统</h1>
         <p>GraphRAG 知识库</p>
       </div>
 
       <form @submit.prevent="handleLogin">
         <div class="form-group">
-          <label for="email">邮箱</label>
+          <label for="username">用户名</label>
           <input
-            id="email"
-            v-model="form.email"
-            type="email"
-            placeholder="请输入邮箱地址"
+            id="username"
+            v-model="form.username"
+            type="text"
+            placeholder="请输入用户名"
             required
           />
         </div>
@@ -38,16 +38,16 @@
         </div>
 
         <button type="submit" class="btn btn-login" :disabled="loading">
-          {{ loading ? "登陆中..." : "登陆" }}
+          {{ loading ? "登录中..." : "登录" }}
         </button>
       </form>
 
       <div class="divider">或</div>
 
       <div class="social-login">
-        <button class="btn-social" title="GitHub登陆">GitHub</button>
-        <button class="btn-social" title="微信登陆">微信</button>
-        <button class="btn-social" title="Google登陆">Google</button>
+        <button class="btn-social" title="GitHub登录" type="button">GitHub</button>
+        <button class="btn-social" title="微信登录" type="button">微信</button>
+        <button class="btn-social" title="Google登录" type="button">Google</button>
       </div>
 
       <div class="login-footer">
@@ -55,7 +55,7 @@
           还没有账号？<router-link to="/register" class="link">立即注册</router-link>
         </p>
         <p>
-          是管理员？<router-link to="/admin-login" class="link">管理员登陆</router-link>
+          是管理员？<router-link to="/admin-login" class="link">管理员登录</router-link>
         </p>
       </div>
 
@@ -75,10 +75,11 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { saveAuth } from "../utils/auth";
 
 const router = useRouter();
 const form = ref({
-  email: "",
+  username: "",
   password: "",
   rememberMe: false,
 });
@@ -87,36 +88,28 @@ const error = ref("");
 
 const handleLogin = async () => {
   error.value = "";
-  loading.value = true;
+  const username = form.value.username.trim();
+  const password = form.value.password;
 
-  try {
-    // 模拟登陆请求
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    if (!form.value.email || !form.value.password) {
-      error.value = "邮箱和密码不能为空";
-      return;
-    }
-
-    // 保存用户信息到 localStorage
-    const user = {
-      id: Math.random().toString(36).substr(2, 9),
-      email: form.value.email,
-      name: form.value.email.split("@")[0],
-      type: "user",
-      loginTime: new Date().toISOString(),
-    };
-
-    localStorage.setItem("currentUser", JSON.stringify(user));
-    localStorage.setItem("userRemember", form.value.rememberMe);
-
-    // 跳转到聊天界面
-    router.push("/");
-  } catch (err) {
-    error.value = "登陆失败，请稍后重试";
-  } finally {
-    loading.value = false;
+  if (!username || !password) {
+    error.value = "请输入用户名和密码";
+    return;
   }
+
+  // 临时离线模式：直接登录，不走后端
+  const hardcodedToken = "offline-user-token-" + Date.now();
+  saveAuth({
+    token: hardcodedToken,
+    user: {
+      id: 1,
+      username: username || "user",
+      email: "",
+      real_name: "",
+      type: "user",
+    },
+  });
+  localStorage.setItem("userRemember", String(form.value.rememberMe));
+  router.push("/");
 };
 </script>
 

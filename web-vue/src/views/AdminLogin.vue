@@ -2,18 +2,18 @@
   <div class="admin-login-container">
     <div class="admin-login-box">
       <div class="admin-login-header">
-        <h1>🔐 管理员登陆</h1>
+        <h1>管理员登录</h1>
         <p>台风知识问答系统管理平台</p>
       </div>
 
       <form @submit.prevent="handleLogin">
         <div class="form-group">
-          <label for="adminEmail">管理员账号</label>
+          <label for="adminUsername">管理员账号</label>
           <input
-            id="adminEmail"
-            v-model="form.email"
-            type="email"
-            placeholder="请输入管理员邮箱"
+            id="adminUsername"
+            v-model="form.username"
+            type="text"
+            placeholder="请输入管理员用户名"
             required
           />
         </div>
@@ -54,12 +54,12 @@
         </div>
 
         <button type="submit" class="btn btn-login" :disabled="loading">
-          {{ loading ? "登陆中..." : "管理员登陆" }}
+          {{ loading ? "登录中..." : "管理员登录" }}
         </button>
       </form>
 
       <div class="admin-login-footer">
-        <router-link to="/login" class="link">← 返回用户登陆</router-link>
+        <router-link to="/login" class="link">返回用户登录</router-link>
       </div>
 
       <div v-if="error" class="error-message">
@@ -78,10 +78,11 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { saveAuth } from "../utils/auth";
 
 const router = useRouter();
 const form = ref({
-  email: "",
+  username: "",
   password: "",
   verifyCode: "",
   rememberMe: false,
@@ -89,7 +90,6 @@ const form = ref({
 const loading = ref(false);
 const error = ref("");
 
-// 验证码生成
 const generateVerifyCode = () => {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 };
@@ -104,49 +104,36 @@ const refreshVerifyCode = () => {
 
 const handleLogin = async () => {
   error.value = "";
-  loading.value = true;
 
-  try {
-    // 验证码检查
-    if (form.value.verifyCode.toUpperCase() !== currentVerifyCode.value) {
-      error.value = "验证码错误";
-      refreshVerifyCode();
-      return;
-    }
-
-    // 模拟登陆请求
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    if (!form.value.email || !form.value.password) {
-      error.value = "邮箱和密码不能为空";
-      return;
-    }
-
-    // 简单的管理员验证（实际应该调用后端API）
-    if (!form.value.email.includes("admin")) {
-      error.value = "该账号不是管理员账号";
-      return;
-    }
-
-    // 保存管理员信息
-    const admin = {
-      id: Math.random().toString(36).substr(2, 9),
-      email: form.value.email,
-      name: "管理员",
-      type: "admin",
-      loginTime: new Date().toISOString(),
-    };
-
-    localStorage.setItem("currentUser", JSON.stringify(admin));
-    localStorage.setItem("adminRemember", form.value.rememberMe);
-
-    // 跳转到管理后台
-    router.push("/admin/user");
-  } catch (err) {
-    error.value = "登陆失败，请稍后重试";
-  } finally {
-    loading.value = false;
+  if (form.value.verifyCode.toUpperCase() !== currentVerifyCode.value) {
+    error.value = "验证码错误";
+    refreshVerifyCode();
+    return;
   }
+
+  const username = form.value.username.trim();
+  const password = form.value.password;
+
+  if (!username || !password) {
+    error.value = "请输入管理员账号和密码";
+    return;
+  }
+
+  // 临时离线模式：直接登录，不走后端
+  const hardcodedToken = "offline-admin-token-" + Date.now();
+  saveAuth({
+    token: hardcodedToken,
+    user: {
+      id: 1,
+      username: username || "admin",
+      email: "",
+      real_name: "",
+      role: "super_admin",
+      type: "admin",
+    },
+  });
+  localStorage.setItem("adminRemember", String(form.value.rememberMe));
+  router.push("/admin/user");
 };
 </script>
 

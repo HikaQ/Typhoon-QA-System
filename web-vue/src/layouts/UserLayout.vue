@@ -1,10 +1,11 @@
-<template>
-  <div class="chat-container">
+﻿<template>
+  <div class="chat-container" :class="{ 'has-modal': showProfileModal, 'sidebar-collapsed': isSidebarCollapsed, 'dark-mode': darkMode }">
     <!-- 左侧对话历史 -->
     <div class="sidebar">
       <div class="sidebar-header">
-        <button class="new-chat-btn" @click="newChat">
-          <span class="icon">+</span> 新建对话
+        <div class="sidebar-logo">{{ isSidebarCollapsed ? "T" : "TYPHOON" }}</div>
+        <button class="sidebar-toggle-btn" @click="toggleSidebar">
+          {{ isSidebarCollapsed ? ">" : "<" }}
         </button>
       </div>
 
@@ -22,8 +23,22 @@
       </div>
 
       <div class="sidebar-footer">
-        <button class="settings-btn" @click="goToSettings">⚙️ 设置</button>
-        <button class="logout-btn" @click="logout">🚪 登出</button>
+        <button class="new-chat-btn" @click="newChat" title="新建对话">
+          <span class="icon">+</span>
+          <span v-if="!isSidebarCollapsed" class="sidebar-btn-text">新建对话</span>
+        </button>
+        <button class="profile-btn" @click="goToProfile" title="个人中心">
+          <span class="icon">👤</span>
+          <span v-if="!isSidebarCollapsed" class="sidebar-btn-text">个人中心</span>
+        </button>
+        <button class="theme-btn" @click="toggleDarkMode" :title="darkMode ? '浅色模式' : '深色模式'">
+          <span class="icon">{{ darkMode ? '☀️' : '🌙' }}</span>
+          <span v-if="!isSidebarCollapsed" class="sidebar-btn-text">{{ darkMode ? '浅色' : '深色' }}</span>
+        </button>
+        <button class="logout-btn" @click="logout" title="退出登录">
+          <span class="icon">🚪</span>
+          <span v-if="!isSidebarCollapsed" class="sidebar-btn-text">退出登录</span>
+        </button>
       </div>
     </div>
 
@@ -44,14 +59,14 @@
             <div class="message-content">{{ msg.text }}</div>
           </div>
 
-          <!-- AI回复 -->
+          <!-- AI -->
           <div v-if="msg.type === 'assistant'" class="message assistant-message">
-            <div class="message-avatar">🤖</div>
+            <div class="message-avatar">AI</div>
             <div class="message-body">
               <div class="message-content">{{ msg.text }}</div>
               <div v-if="msg.context" class="message-context">
                 <details>
-                  <summary>📚 知识依据</summary>
+                  <summary>知识依据</summary>
                   <pre>{{ msg.context }}</pre>
                 </details>
               </div>
@@ -60,7 +75,7 @@
         </div>
 
         <div v-if="loading" class="message assistant-message">
-          <div class="message-avatar">🤖</div>
+          <div class="message-avatar">AI</div>
           <div class="message-body">
             <div class="loading-dots">
               <span></span><span></span><span></span>
@@ -91,19 +106,107 @@
         <div class="input-hint">按 Ctrl+Enter 或 Cmd+Enter 发送</div>
       </div>
     </div>
+
+    <div v-if="showProfileModal" class="profile-overlay" @click="closeProfileModal">
+      <div class="profile-modal" @click.stop>
+        <div class="profile-modal-header">
+          <h2>个人中心</h2>
+          <div class="profile-actions">
+            <button v-if="!profileEditing" class="action-btn primary" @click="startEditProfile">编辑</button>
+            <button v-else class="action-btn success" :disabled="profileSaving" @click="saveProfile">
+              {{ profileSaving ? "保存中..." : "保存" }}
+            </button>
+            <button v-if="profileEditing" class="action-btn" @click="cancelEditProfile">取消</button>
+            <button class="close-btn" @click="closeProfileModal">×</button>
+          </div>
+        </div>
+
+        <div v-if="profileLoading" class="profile-loading">正在加载资料...</div>
+        <div v-else class="profile-modal-body">
+          <div class="avatar-wrap">
+            <div class="avatar-circle">
+              <span v-if="profileForm.avatar">{{ profileForm.avatar }}</span>
+              <span v-else>{{ (profileForm.username || "?").charAt(0).toUpperCase() }}</span>
+            </div>
+            <input
+              v-if="profileEditing"
+              v-model="profileForm.avatar"
+              class="profile-input"
+              type="text"
+              placeholder="头像 emoji 或 URL"
+            />
+          </div>
+
+          <div class="profile-grid">
+            <div class="profile-field">
+              <label>用户名</label>
+              <input class="profile-input" :value="profileForm.username" disabled />
+            </div>
+            <div class="profile-field">
+              <label>邮箱</label>
+              <input v-if="profileEditing" v-model="profileForm.email" class="profile-input" type="email" placeholder="请输入邮箱" />
+              <div v-else class="profile-value">{{ profileForm.email || "未设置" }}</div>
+            </div>
+            <div class="profile-field">
+              <label>电话</label>
+              <input v-if="profileEditing" v-model="profileForm.phone" class="profile-input" type="text" placeholder="请输入电话" />
+              <div v-else class="profile-value">{{ profileForm.phone || "未设置" }}</div>
+            </div>
+            <div class="profile-field">
+              <label>真实姓名</label>
+              <input v-if="profileEditing" v-model="profileForm.real_name" class="profile-input" type="text" placeholder="请输入真实姓名" />
+              <div v-else class="profile-value">{{ profileForm.real_name || "未设置" }}</div>
+            </div>
+            <div class="profile-field profile-field-full">
+              <label>个人简介</label>
+              <textarea
+                v-if="profileEditing"
+                v-model="profileForm.bio"
+                class="profile-textarea"
+                rows="4"
+                maxlength="500"
+                placeholder="请输入个人简介"
+              ></textarea>
+              <div v-else class="profile-value profile-bio">{{ profileForm.bio || "还没有填写个人简介" }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="profileMessage" :class="['profile-tip', profileMessage.type]">{{ profileMessage.text }}</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { askQuestion } from "../api/chat";
+import { askQuestion, getUserProfile, updateUserProfile } from "../api/chat";
+import { clearAuth } from "../utils/auth";
 
 const router = useRouter();
 
 const question = ref("");
 const loading = ref(false);
 const currentChatIndex = ref(0);
+const isSidebarCollapsed = ref(false);
+const darkMode = ref(false);
+const showProfileModal = ref(false);
+const profileLoading = ref(false);
+const profileSaving = ref(false);
+const profileEditing = ref(false);
+const profileMessage = ref(null);
+
+const profileForm = reactive({
+  id: null,
+  username: "",
+  email: "",
+  phone: "",
+  real_name: "",
+  bio: "",
+  avatar: "",
+});
+const profileSnapshot = reactive({});
 
 // 对话历史和消息
 const chatHistory = ref([
@@ -112,7 +215,7 @@ const chatHistory = ref([
 
 const messages = computed(() => chatHistory.value[currentChatIndex.value]?.messages || []);
 
-// 提交问题
+// 提交问题
 const submit = async () => {
   if (!question.value.trim() || loading.value) return;
 
@@ -137,14 +240,13 @@ const submit = async () => {
       context: res.data.context
     });
 
-    // 更新对话标题（如果是第一条消息）
     if (messages.value.length === 2) {
       chatHistory.value[currentChatIndex.value].title = userQuestion.substring(0, 30) + (userQuestion.length > 30 ? "..." : "");
     }
   } catch (error) {
     messages.value.push({
       type: "assistant",
-      text: "抱歉，请求失败。请重试。",
+      text: "抱歉，请求失败，请重试。",
       context: error.message
     });
   }
@@ -176,18 +278,117 @@ const deleteChat = (index) => {
   }
 };
 
-// 跳转到设置
-const goToSettings = () => {
-  router.push("/admin/setting");
+// 跳转到个人中心
+const showProfileTip = (text, type = "error") => {
+  profileMessage.value = { text, type };
+  setTimeout(() => {
+    profileMessage.value = null;
+  }, 2500);
 };
 
-// 登出
+const loadProfile = async () => {
+  const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
+  if (!currentUser || !currentUser.id) {
+    router.push("/login");
+    return;
+  }
+
+  profileLoading.value = true;
+  try {
+    const response = await getUserProfile(currentUser.id);
+    const data = response.data || {};
+    profileForm.id = data.id;
+    profileForm.username = data.username || "";
+    profileForm.email = data.email || "";
+    profileForm.phone = data.phone || "";
+    profileForm.real_name = data.real_name || "";
+    profileForm.bio = data.bio || "";
+    profileForm.avatar = data.avatar || "";
+    Object.assign(profileSnapshot, profileForm);
+  } catch (error) {
+    showProfileTip(error.response?.data?.msg || "加载个人资料失败");
+  } finally {
+    profileLoading.value = false;
+  }
+};
+
+const goToProfile = async () => {
+  showProfileModal.value = true;
+  profileEditing.value = false;
+  await loadProfile();
+};
+
+const closeProfileModal = () => {
+  showProfileModal.value = false;
+  profileEditing.value = false;
+  profileMessage.value = null;
+};
+
+const startEditProfile = () => {
+  profileEditing.value = true;
+  Object.assign(profileSnapshot, profileForm);
+};
+
+const cancelEditProfile = () => {
+  profileEditing.value = false;
+  Object.assign(profileForm, profileSnapshot);
+};
+
+const saveProfile = async () => {
+  if (!profileForm.id) return;
+  profileSaving.value = true;
+  try {
+    await updateUserProfile(profileForm.id, {
+      email: profileForm.email,
+      phone: profileForm.phone,
+      real_name: profileForm.real_name,
+      bio: profileForm.bio,
+      avatar: profileForm.avatar,
+    });
+    profileEditing.value = false;
+    Object.assign(profileSnapshot, profileForm);
+
+    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+    currentUser.email = profileForm.email;
+    currentUser.real_name = profileForm.real_name;
+    localStorage.setItem("currentUser", JSON.stringify(currentUser));
+
+    showProfileTip("保存成功", "success");
+  } catch (error) {
+    showProfileTip(error.response?.data?.msg || "保存失败");
+  } finally {
+    profileSaving.value = false;
+  }
+};
+
+
+// 退出登录
 const logout = () => {
-  if (confirm("确定要登出吗？")) {
-    localStorage.removeItem("currentUser");
+  if (confirm("确定要退出登录吗？")) {
+    clearAuth();
     router.push("/login");
   }
 };
+
+const toggleSidebar = () => {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value;
+};
+
+const toggleDarkMode = () => {
+  darkMode.value = !darkMode.value;
+  localStorage.setItem('darkMode', darkMode.value ? 'true' : 'false');
+};
+
+watch(showProfileModal, (visible) => {
+  document.body.style.overflow = visible ? "hidden" : "";
+});
+
+onMounted(() => {
+  const savedDarkMode = localStorage.getItem('darkMode');
+  if (savedDarkMode === 'true') {
+    darkMode.value = true;
+  }
+});
 </script>
 
 <style scoped>
@@ -195,6 +396,441 @@ const logout = () => {
   display: flex;
   height: 100vh;
   background: #fff;
+}
+
+.chat-container.sidebar-collapsed .sidebar {
+  width: 56px;
+}
+
+.chat-container.sidebar-collapsed .sidebar-logo {
+  display: none;
+}
+
+.chat-container.sidebar-collapsed .chat-history {
+  display: none;
+}
+
+/* ===== 深色模式 ===== */
+.chat-container.dark-mode {
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .sidebar {
+  background: #2d2d2d;
+  border-right-color: #404040;
+}
+
+.chat-container.dark-mode .sidebar-header {
+  border-bottom-color: #404040;
+}
+
+.chat-container.dark-mode .sidebar-logo {
+  color: #8b9cff;
+}
+
+.chat-container.dark-mode .chat-history {
+  background: #2d2d2d;
+}
+
+.chat-container.dark-mode .chat-item {
+  background: #383838;
+  border-color: transparent;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .chat-item:hover {
+  background: #404040;
+}
+
+.chat-container.dark-mode .chat-item.active {
+  background: #3d3d7a;
+  border-color: #6366f1;
+}
+
+.chat-container.dark-mode .chat-item-title {
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .chat-item.active .chat-item-title {
+  color: #a0a8ff;
+}
+
+.chat-container.dark-mode .sidebar-footer {
+  border-top-color: #404040;
+}
+
+.chat-container.dark-mode .new-chat-btn,
+.chat-container.dark-mode .profile-btn,
+.chat-container.dark-mode .theme-btn {
+  background: #383838;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .new-chat-btn:hover,
+.chat-container.dark-mode .profile-btn:hover,
+.chat-container.dark-mode .theme-btn:hover {
+  background: #404040;
+  border-color: #505050;
+}
+
+.chat-container.dark-mode .profile-btn:hover {
+  background: #3d3d7a;
+  border-color: #6366f1;
+  color: #a0a8ff;
+}
+
+.chat-container.dark-mode .logout-btn {
+  background: #5c2a2a;
+  border-color: #704040;
+  color: #ff9999;
+}
+
+.chat-container.dark-mode .logout-btn:hover {
+  background: #704040;
+}
+
+.chat-container.dark-mode .sidebar-toggle-btn {
+  background: #383838;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .sidebar-toggle-btn:hover {
+  background: #404040;
+}
+
+.chat-container.dark-mode .main-content {
+  background: #1a1a1a;
+}
+
+.chat-container.dark-mode .chat-messages {
+  background: #1a1a1a;
+}
+
+.chat-container.dark-mode .empty-state {
+  color: #808080;
+}
+
+.chat-container.dark-mode .empty-state h2 {
+  color: #b0b0b0;
+}
+
+.chat-container.dark-mode .user-message .message-content {
+  background: #5a5acd;
+  color: #fff;
+}
+
+.chat-container.dark-mode .message-content {
+  background: #383838;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .input-area {
+  background: #2d2d2d;
+  border-top-color: #404040;
+}
+
+.chat-container.dark-mode textarea {
+  background: #383838;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.chat-container.dark-mode .send-btn {
+  background: #6366f1;
+  color: #fff;
+}
+
+.chat-container.dark-mode .send-btn:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.chat-container.dark-mode .send-btn:disabled {
+  background: #505050;
+}
+
+.chat-container.dark-mode .input-hint {
+  color: #808080;
+}
+
+.chat-container.dark-mode .message-context pre {
+  background: #2d2d2d;
+  border-color: #404040;
+  color: #b0b0b0;
+}
+
+.chat-container.dark-mode .message-context summary {
+  color: #8b9cff;
+}
+
+.chat-container.dark-mode .message-context summary:hover {
+  background: #303060;
+}
+
+.chat-container.dark-mode .profile-overlay {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.chat-container.dark-mode .profile-modal {
+  background: #2d2d2d;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .profile-modal-header {
+  background: rgba(45, 45, 45, 0.95);
+  border-bottom-color: #404040;
+}
+
+.chat-container.dark-mode .profile-modal-header h2 {
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .action-btn,
+.chat-container.dark-mode .close-btn {
+  background: #383838;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .action-btn.primary {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+
+.chat-container.dark-mode .action-btn.success {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.chat-container.dark-mode .profile-input,
+.chat-container.dark-mode .profile-textarea {
+  background: #383838;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .profile-input:disabled {
+  background: #2d2d2d;
+}
+
+.chat-container.dark-mode .profile-value {
+  background: #1a1a1a;
+  border-color: #404040;
+  color: #e0e0e0;
+}
+
+.chat-container.dark-mode .profile-field label {
+  color: #b0b0b0;
+}
+
+.chat-container.dark-mode .profile-loading {
+  color: #b0b0b0;
+}
+
+.chat-container.dark-mode .profile-tip.success {
+  background: #2d4620;
+  color: #7cfc00;
+}
+
+.chat-container.dark-mode .profile-tip.error {
+  background: #4d2020;
+  color: #ff7777;
+}
+
+.chat-container.dark-mode .loading-dots span {
+  background: #808080;
+}
+
+.chat-container.has-modal .sidebar,
+.chat-container.has-modal .main-content {
+  filter: blur(3px);
+}
+
+.profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.profile-modal {
+  width: min(780px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+  border: 1px solid #e5e7eb;
+}
+
+.profile-modal-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #1f2937;
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-btn,
+.close-btn {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.action-btn.primary {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+
+.action-btn.success {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+.action-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.close-btn {
+  font-size: 18px;
+  width: 36px;
+  height: 36px;
+  line-height: 1;
+  padding: 0;
+}
+
+.profile-loading {
+  padding: 36px 20px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.profile-modal-body {
+  padding: 18px 20px 20px;
+}
+
+.avatar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.avatar-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-field-full {
+  grid-column: 1 / -1;
+}
+
+.profile-field label {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.profile-input,
+.profile-textarea,
+.profile-value {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #111827;
+  background: #fff;
+}
+
+.profile-input:disabled {
+  background: #f3f4f6;
+}
+
+.profile-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.profile-value {
+  background: #f9fafb;
+}
+
+.profile-bio {
+  white-space: pre-wrap;
+}
+
+.profile-tip {
+  margin: 0 20px 20px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.profile-tip.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.profile-tip.error {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 /* ===== 左侧边栏 ===== */
@@ -205,11 +841,24 @@ const logout = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 0.2s ease;
+  position: relative;
 }
 
 .sidebar-header {
   padding: 12px;
   border-bottom: 1px solid #e5e7eb;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-logo {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #4f46e5;
 }
 
 .new-chat-btn {
@@ -308,9 +957,19 @@ const logout = () => {
 .sidebar-footer {
   padding: 12px;
   border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
 }
 
-.settings-btn {
+.sidebar-footer .new-chat-btn {
+  margin-bottom: 0;
+}
+
+
+
+.profile-btn {
   width: 100%;
   padding: 10px 12px;
   background: #fff;
@@ -319,11 +978,40 @@ const logout = () => {
   cursor: pointer;
   text-align: center;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   transition: all 0.2s;
+  margin-bottom: 0;
 }
 
-.settings-btn:hover {
+.profile-btn:hover {
+  background: #e0e7ff;
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.theme-btn {
+  width: 100%;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  margin-bottom: 0;
+}
+
+.theme-btn:hover {
   background: #f3f4f6;
+  border-color: #9ca3af;
 }
 
 .logout-btn {
@@ -336,12 +1024,33 @@ const logout = () => {
   cursor: pointer;
   text-align: center;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   transition: all 0.2s;
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 .logout-btn:hover {
   background: #fecaca;
+}
+
+.sidebar-btn-text {
+  white-space: nowrap;
+}
+
+.chat-container.sidebar-collapsed .sidebar-footer {
+  padding: 8px 6px;
+  gap: 6px;
+}
+
+.chat-container.sidebar-collapsed .new-chat-btn,
+.chat-container.sidebar-collapsed .profile-btn,
+.chat-container.sidebar-collapsed .theme-btn,
+.chat-container.sidebar-collapsed .logout-btn {
+  padding: 8px 0;
+  min-height: 34px;
 }
 
 /* ===== 右侧主内容区 ===== */
@@ -350,6 +1059,34 @@ const logout = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.sidebar-toggle-btn {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #f3f4f6;
+}
+
+.sidebar-toggle-bottom {
+  width: 100%;
+  height: auto;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .chat-messages {
@@ -609,6 +1346,19 @@ textarea:focus {
 
   .message {
     max-width: 100%;
+  }
+
+  .profile-modal {
+    max-height: 92vh;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .avatar-wrap {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

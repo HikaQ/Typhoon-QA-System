@@ -28,30 +28,61 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 
 const filterType = ref("");
-const logs = ref([
-  { type: "info", message: "系统启动成功", time: "2024-01-10 10:00:00" },
-  { type: "info", message: "用户登录: user1@example.com", time: "2024-01-10 10:05:23" },
-  { type: "warning", message: "检测到异常请求", time: "2024-01-10 10:15:45" },
-  { type: "info", message: "知识图谱更新完成", time: "2024-01-10 10:30:12" },
-  { type: "error", message: "数据库连接超时", time: "2024-01-10 10:45:33" },
-  { type: "info", message: "数据备份完成", time: "2024-01-10 11:00:00" },
-]);
+const logs = ref([]);
+const loading = ref(false);
+
+const mapType = (status) => {
+  if (!status) return "info";
+  const s = String(status).toLowerCase();
+  if (s === "success" || s === "info") return "info";
+  if (s === "warning") return "warning";
+  if (s === "failure" || s === "error") return "error";
+  return "info";
+};
+
+const loadLogs = async () => {
+  loading.value = true;
+  try {
+    const res = await fetch(`/log?limit=200`);
+    if (!res.ok) throw new Error(`请求失败: ${res.status}`);
+    const data = await res.json();
+    logs.value = (data.logs || []).map((l) => ({
+      type: mapType(l.status),
+      message: l.username ? `${l.username} — ${l.action_label || l.action}` : (l.action_label || l.action),
+      time: l.create_time || "",
+      raw: l,
+    }));
+  } catch (e) {
+    console.error("加载日志失败", e);
+    logs.value = [{ type: "error", message: `加载失败: ${e.message}`, time: new Date().toISOString() }];
+  } finally {
+    loading.value = false;
+  }
+};
 
 const filteredLogs = computed(() => {
-  if (!filterType.value) {
-    return logs.value;
-  }
+  if (!filterType.value) return logs.value;
   return logs.value.filter((log) => log.type === filterType.value);
 });
 
-const clearLogs = () => {
-  if (confirm("确定要清空所有日志吗？")) {
+const clearLogs = async () => {
+  if (!confirm("确定要清空所有日志吗？")) return;
+  try {
+    const res = await fetch(`/log`, { method: "DELETE" });
+    if (!res.ok) throw new Error(`清空失败: ${res.status}`);
+    await res.json();
     logs.value = [];
+  } catch (e) {
+    alert(`清空日志失败: ${e.message}`);
   }
 };
+
+onMounted(() => {
+  loadLogs();
+});
 </script>
 
 <style scoped>
